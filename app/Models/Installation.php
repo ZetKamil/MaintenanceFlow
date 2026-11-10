@@ -55,6 +55,14 @@ class Installation extends Model
     }
 
     /**
+     * Hardware components installed on site (panels, detectors, batteries).
+     */
+    public function components(): HasMany
+    {
+        return $this->hasMany(InstallationComponent::class);
+    }
+
+    /**
      * Helper to identify high-priority statutory fire systems.
      */
     public function isFireSafety(): bool
