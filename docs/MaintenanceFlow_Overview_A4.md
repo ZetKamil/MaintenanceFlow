@@ -21,7 +21,7 @@ Auditing the raw BuildDesk exports (`BD_EXP_*_20261109.csv`) revealed why Dirk l
 ---
 
 ## 3. Intentional Omissions & First Questions for Dirk
-* **Deliberately left out of MVP:** Invoicing/pricing (`BD_EXP_ART`), signed PDF certificates, `Dispatcher`/`Sales` sub-roles (designed to add cleanly later via `UserRole`), and auto-merging duplicate customer entries (*Kapsalon Mieke* / *VZW De Klaproos* variants) to preserve accounting audit trails.
+* **Deliberately left out of MVP:** Full customer/invoice master-data CRUD (accounting/BuildDesk remains source of truth in Phase 1), pricing (`BD_EXP_ART`), signed PDF certificates, `Dispatcher`/`Sales` sub-roles (designed to add cleanly later via `UserRole`), and auto-merging duplicate customer entries (*Kapsalon Mieke* / *VZW De Klaproos* variants) to preserve accounting audit trails.
 * **Next questions for Dirk before go-live:**
   1. Which customers own the **14 skipped orphan installations** (missing `klant`) and **16 historical work orders**?
   2. Should the **4 planned orders** tied to inactive (`actief=N`) customers be cancelled, and how should we reschedule the **3 flagged `Overlap` visits**?
