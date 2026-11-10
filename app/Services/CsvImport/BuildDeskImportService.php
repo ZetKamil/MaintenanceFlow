@@ -86,19 +86,21 @@ class BuildDeskImportService
                 $stats['customers']['skipped']++;
                 continue;
             }
-            $street = trim(($row['straat'] ?? '') . ' ' . ($row['nr'] ?? ''));
-            $phone = ($row['gsm'] ?? '') !== '' ? $row['gsm'] : ($row['tel'] ?? null);
+            $street = $this->normalizer->normalizeText(($row['straat'] ?? '') . ' ' . ($row['nr'] ?? ''));
+            $phone = $this->normalizer->normalizePhone($row['gsm'] ?? null)
+                ?? $this->normalizer->normalizePhone($row['tel'] ?? null);
+            $email = $this->normalizer->normalizeText($row['email'] ?? null);
 
             $customer = Customer::updateOrCreate(
                 ['source_system' => self::SOURCE_SYSTEM, 'external_id' => $code],
                 [
-                    'name' => $row['naam'] ?: "Customer {$code}",
-                    'email' => ($row['email'] ?? '') !== '' ? $row['email'] : null,
-                    'phone' => $phone !== '' ? $phone : null,
-                    'street' => $street !== '' ? $street : null,
-                    'postal_code' => ($row['postcode'] ?? '') !== '' ? $row['postcode'] : null,
-                    'city' => ($row['gemeente'] ?? '') !== '' ? $row['gemeente'] : null,
-                    'is_active' => strtoupper($row['actief'] ?? 'J') === 'J',
+                    'name' => $this->normalizer->normalizeText($row['naam'] ?? null) ?? "Customer {$code}",
+                    'email' => $email ? strtolower($email) : null,
+                    'phone' => $phone,
+                    'street' => $street,
+                    'postal_code' => $this->normalizer->normalizeText($row['postcode'] ?? null),
+                    'city' => $this->normalizer->normalizeText($row['gemeente'] ?? null),
+                    'is_active' => strtoupper(trim($row['actief'] ?? 'J')) === 'J',
                 ]
             );
             $customer->wasRecentlyCreated ? $stats['customers']['created']++ : $stats['customers']['updated']++;
@@ -131,12 +133,12 @@ class BuildDeskImportService
                 ['source_system' => self::SOURCE_SYSTEM, 'external_id' => $nr],
                 [
                     'customer_id' => $customer->id,
-                    'name' => ($row['omschrijving'] ?? '') !== '' ? $row['omschrijving'] : "Installation #{$nr}",
+                    'name' => $this->normalizer->normalizeText($row['omschrijving'] ?? null) ?? "Installation #{$nr}",
                     'installation_type' => $type,
-                    'location_street' => $street,
-                    'location_postal_code' => $postal,
-                    'location_city' => $city,
-                    'is_active' => strtoupper($row['actief'] ?? 'J') === 'J',
+                    'location_street' => $this->normalizer->normalizeText($street),
+                    'location_postal_code' => $this->normalizer->normalizeText($postal),
+                    'location_city' => $this->normalizer->normalizeText($city),
+                    'is_active' => $customer->is_active && strtoupper(trim($row['actief'] ?? 'J')) === 'J',
                 ]
             );
             $installation->wasRecentlyCreated ? $stats['installations']['created']++ : $stats['installations']['updated']++;
@@ -163,7 +165,7 @@ class BuildDeskImportService
                     'last_completed_at' => $last?->toDateString(),
                     'next_due_at' => $next?->toDateString(),
                     'is_active' => $installation->is_active,
-                    'source_notes' => ($row['notities'] ?? '') !== '' ? $row['notities'] : null,
+                    'source_notes' => $this->normalizer->normalizeText($row['notities'] ?? null),
                 ]
             );
             $plan->wasRecentlyCreated ? $stats['plans']['created']++ : $stats['plans']['updated']++;
@@ -230,6 +232,7 @@ class BuildDeskImportService
             $installation = $installationMap[$fiche] ?? ($customerFirstInstMap[$customerMap[$row['klant'] ?? '']->id ?? 0] ?? null);
             if (!$installation) {
                 $stats['work_orders']['skipped']++;
+                $stats['warnings'][] = "Skipped work order {$nr}: missing valid installation or customer.";
                 continue;
             }
 
@@ -254,6 +257,10 @@ class BuildDeskImportService
                 str_contains($officeNote, 'wacht') || str_contains($officeNote, 'reis') => WorkOrderStatus::AWAITING_CUSTOMER,
                 default => WorkOrderStatus::NEEDS_CONTACT,
             };
+
+            if ($status === WorkOrderStatus::SCHEDULED && !$installation->is_active) {
+                $stats['warnings'][] = "Scheduled work order {$nr} belongs to inactive installation/customer.";
+            }
 
             $techCode = $exHour['tech'] ?? ($plHour['tech'] ?? null);
             $techId = $techCode ? ($teamMap[$techCode] ?? null) : null;
@@ -374,12 +381,16 @@ class BuildDeskImportService
 
     private function parseLocation(string $rawPand, Customer $fallback): array
     {
-        $trimmed = trim($rawPand);
+        $trimmed = $this->normalizer->normalizeText($rawPand) ?? '';
         if ($trimmed === '') {
             return [$fallback->street, $fallback->postal_code, $fallback->city];
         }
         if (preg_match('/^(.+?),\s*(\d{4})\s+(.+)$/', $trimmed, $m)) {
-            return [trim($m[1]), trim($m[2]), trim($m[3])];
+            return [
+                $this->normalizer->normalizeText($m[1]),
+                trim($m[2]),
+                $this->normalizer->normalizeText($m[3]),
+            ];
         }
         return [$trimmed, $fallback->postal_code, $fallback->city];
     }

@@ -124,4 +124,57 @@ class BuildDeskNormalizer
 
         return is_numeric($cleaned) ? (float) $cleaned : 0.0;
     }
+
+    /**
+     * Normalize inconsistent Belgian phone strings (e.g. "0400/00.48.71", "+32 56 003983", "056 00 45 26")
+     * into canonical E.164 format ("+32400004871", "+3256003983").
+     */
+    public function normalizePhone(?string $value): ?string
+    {
+        $trimmed = trim((string) $value);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $cleaned = preg_replace('/[^\d+]/', '', $trimmed) ?? '';
+        $hasPlus = str_starts_with($cleaned, '+');
+        $digits = str_replace('+', '', $cleaned);
+
+        if ($digits === '') {
+            return null;
+        }
+
+        // Convert "0032..." -> "+32..."
+        if (!$hasPlus && str_starts_with($digits, '00')) {
+            $digits = substr($digits, 2);
+            $hasPlus = true;
+        }
+
+        // Fix accidental "+320..." -> "+32..."
+        if ($hasPlus && str_starts_with($digits, '320')) {
+            $digits = '32' . substr($digits, 3);
+        }
+
+        // Convert local Belgian leading "0..." -> "+32..."
+        if (!$hasPlus && str_starts_with($digits, '0')) {
+            $digits = '32' . substr($digits, 1);
+            $hasPlus = true;
+        }
+
+        if (strlen($digits) < 8) {
+            return null;
+        }
+
+        return ($hasPlus ? '+' : '') . $digits;
+    }
+
+    /**
+     * Trim leading/trailing whitespace and collapse repeated internal spaces.
+     */
+    public function normalizeText(?string $value): ?string
+    {
+        $collapsed = preg_replace('/\s+/', ' ', trim((string) $value));
+
+        return ($collapsed !== null && $collapsed !== '') ? $collapsed : null;
+    }
 }

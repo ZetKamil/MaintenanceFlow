@@ -259,6 +259,23 @@ function exceptionBadgeClass(status) {
     }[status] || '';
 }
 
+function hasCellConflict(wo, dayOrders) {
+    if (wo.status === 'cancelled' || !wo.scheduled_start_at || !wo.scheduled_end_at) {
+        return false;
+    }
+    const start = new Date(wo.scheduled_start_at).getTime();
+    const end = new Date(wo.scheduled_end_at).getTime();
+
+    return dayOrders.some((other) => {
+        if (other.id === wo.id || other.status === 'cancelled' || !other.scheduled_start_at || !other.scheduled_end_at) {
+            return false;
+        }
+        const oStart = new Date(other.scheduled_start_at).getTime();
+        const oEnd = new Date(other.scheduled_end_at).getTime();
+        return start < oEnd && end > oStart;
+    });
+}
+
 watch([weekStart, selectedTechId], loadPlanning);
 onMounted(loadPlanning);
 </script>
@@ -433,13 +450,22 @@ onMounted(loadPlanning);
                   <span v-if="wo.installation.location_city" class="text-[10px] text-slate-400 truncate">
                     {{ wo.installation.location_city }}
                   </span>
-                  <span
-                    v-if="exceptionBadgeLabel(wo)"
-                    class="px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0"
-                    :class="exceptionBadgeClass(wo.status)"
-                  >
-                    {{ exceptionBadgeLabel(wo) }}
-                  </span>
+                  <div class="flex items-center gap-1 shrink-0">
+                    <span
+                      v-if="hasCellConflict(wo, row.cells[day.ymd])"
+                      title="Double-booked time slot in legacy schedule"
+                      class="px-1.5 py-0.5 rounded text-[10px] font-medium text-amber-800 bg-amber-100"
+                    >
+                      Overlap
+                    </span>
+                    <span
+                      v-if="exceptionBadgeLabel(wo)"
+                      class="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                      :class="exceptionBadgeClass(wo.status)"
+                    >
+                      {{ exceptionBadgeLabel(wo) }}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
