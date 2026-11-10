@@ -14,7 +14,11 @@ class ImportBuildDeskCommand extends Command
 
     public function handle(BuildDeskImportService $importer): int
     {
-        $directory = $this->option('path') ?: storage_path('app/private/source-imports');
+        $directory = $this->option('path') ?: (
+            is_dir(database_path('data/builddesk'))
+                ? database_path('data/builddesk')
+                : storage_path('app/private/source-imports')
+        );
 
         $this->info("Starting BuildDesk Pro import from: {$directory}");
 

@@ -16,16 +16,16 @@
 > *"I never know which maintenance is coming up. Fire detection has to be serviced every year by law, and I'm terrified of forgetting customers. And when I try to schedule something in BuildDesk Pro, it takes me an eternity."*
 
 ### Why the Legacy System (BuildDesk Pro) Failed:
-1. **185 of 193 installations (96%) had NO next due date** (`volgende` was completely empty). The old ERP never auto-calculated recurrent maintenance dates.
-2. **56 fire detection systems (`BRAND`)** had untracked statutory deadlines, exposing the company to severe legal liability.
-3. **559 work orders existed**, but only **53 completed reports** were ever logged because the system was unusable on technicians' mobile phones.
-4. **Data corruption & no validation:** Frequencies were recorded as unvalidated free text (`1J`, `12M`, `jaarlijks`, `?`), with scheduled appointments ending before they started (e.g., 13:00 to 12:00).
+1. **185 of 193 installations (96%) had NO next due date** (`volgende` was blank, or inverted earlier than `laatste`). The old ERP never auto-calculated recurring deadlines.
+2. **56 fire detection systems (`BRAND` / `BRANDDET`)** lacked statutory annual tracking, exposing the company to severe legal compliance risk.
+3. **559 work orders existed**, yet only **53 execution hour rows** were logged—field technicians had no usable mobile view.
+4. **Corrupted & inconsistent exports:** Free-text intervals (`1J`, `12M`, `jaarlijks`, `?`), inverted appointment windows (`13:00`–`10:00`), **6 inconsistent phone formats**, double spaces, **7 inactive customers (`actief=N`) still tied to active installations**, and **3 double-booked legacy slots**.
 
 ### What MaintenanceFlow Delivers:
-* **Automated Cycle Ingestion:** Cleanses legacy CSV data, normalizes intervals to standard months, and enriches missing deadlines based on installation dates.
-* **"Needs Contact" Queue:** Instant dashboard visibility of all overdue or upcoming installations lacking an active appointment.
-* **Smart Dispatch Board:** Weekly multi-technician calendar with real-time overlap prevention (`hasScheduleConflict`).
-* **Mobile Technical Service Report:** Technicians submit findings on-site; an atomic database transaction (`DB::transaction`) finalizes the order and advances the customer's next maintenance date by 1 year automatically.
+* **Idempotent Data Cleansing & Import:** Cleanses legacy BuildDesk CSV exports into canonical structures (E.164 `+32` phones, statutory 12-month `BRAND` cycles, repaired time slots, and inactive customer propagation).
+* **"Needs Contact" Priority Queue:** Immediate owner dashboard visibility of overdue and upcoming sites (`BRAND` prioritized first) lacking an active appointment, with one-click scheduling.
+* **Technician × Weekday Dispatch Matrix:** Clean 5-day hairline planning board showing technician availability at a glance, flagging legacy overlaps (`Overlap`), and blocking new schedule conflicts server-side (`hasScheduleConflict`).
+* **Mobile Technical Service Report:** Technicians start visits and log work, findings, recommendations, and used materials; a single `DB::transaction` closes the visit and advances `next_due_at` automatically.
 
 ---
 
@@ -39,42 +39,38 @@
 
 ---
 
-## 🚀 Quick Start (Local Setup)
+## 🚀 Quick Start (Local Setup — macOS / Linux / Windows)
+
+The repository bundles the fictional Verlinde Beveiliging BV BuildDesk CSV exports under `database/data/builddesk/`, so **a fresh clone seeds the full normalized dataset automatically**.
 
 ### Prerequisites
 * PHP 8.2+ (tested with PHP 8.4)
 * Composer 2.x
 * Node.js 18+ and NPM
 
-### 1. Clone & Install Dependencies
+### Option 1: One-Command Setup
 ```bash
-git clone https://github.com/<your-username>/MaintenanceFlowDashboard.git
+git clone <repository-url>
 cd MaintenanceFlowDashboard
+composer run setup
+php artisan serve
+```
+Then open **[http://localhost:8000](http://localhost:8000)** (or your Laravel Herd `.test` domain — Same-Origin auth works on both out of the box).
 
+### Option 2: Step-by-Step Setup
+```bash
 composer install
 npm install
-```
-
-### 2. Configure Environment & Database (Zero-config SQLite)
-```bash
 cp .env.example .env
 php artisan key:generate
 touch database/database.sqlite
-php artisan migrate
-```
-
-### 3. Run BuildDesk Pro Import
-```bash
-php artisan import:builddesk
-```
-*Imports all customers (`REL`), installation fiches (`MS_HDR`), hardware components (`MS_COMP`), and work order history (`WO_HDR` / `WO_OBJ` / `WO_HRS_PL`). Fully idempotent!*
-
-### 4. Build Frontend & Start Server
-```bash
-npm run dev
+php artisan migrate --seed
+npm run build
 php artisan serve
 ```
-Open **[http://localhost:8000](http://localhost:8000)** in your browser!
+
+> **Re-running the BuildDesk import manually:**  
+> `php artisan import:builddesk` reads `database/data/builddesk/` by default (or pass `--path=...`). Both seeding and importing are 100% idempotent.
 
 ---
 

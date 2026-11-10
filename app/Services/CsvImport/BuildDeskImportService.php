@@ -398,6 +398,11 @@ class BuildDeskImportService
     private function findCsvFile(string $directory, string $prefix): ?string
     {
         $matches = glob(rtrim($directory, '/\\') . DIRECTORY_SEPARATOR . $prefix . '*.csv');
-        return $matches && isset($matches[0]) ? $matches[0] : null;
+        if (!$matches) {
+            return null;
+        }
+        sort($matches);
+
+        return $matches[0];
     }
 }
