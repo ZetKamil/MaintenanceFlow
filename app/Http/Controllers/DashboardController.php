@@ -112,6 +112,7 @@ class DashboardController extends Controller
 
         $needsContactList = $needsContactPlans->map(function (MaintenancePlan $plan) use ($today) {
             $openOrder = $plan->workOrders->first();
+            $isOverdue = $plan->next_due_at !== null && $plan->next_due_at->lt($today);
 
             return [
                 'plan_id' => $plan->id,
@@ -123,13 +124,47 @@ class DashboardController extends Controller
                 'customer_name' => $plan->installation->customer->name,
                 'customer_phone' => $plan->installation->customer->phone,
                 'location_city' => $plan->installation->location_city,
+                'last_completed_at' => $plan->last_completed_at?->toDateString(),
                 'next_due_at' => $plan->next_due_at?->toDateString(),
-                'is_overdue' => $plan->next_due_at !== null && $plan->next_due_at->lt($today),
+                'is_overdue' => $isOverdue,
+                'days_overdue' => $isOverdue ? (int) abs($plan->next_due_at->diffInDays($today)) : null,
                 'open_work_order_id' => $openOrder?->id,
                 'follow_up_status' => $openOrder?->status->value ?? WorkOrderStatus::NEEDS_CONTACT->value,
                 'notes' => $openOrder?->notes ?? $plan->source_notes,
             ];
         });
+
+        $weekCountsByTech = WorkOrder::whereIn('status', $activeStatuses)
+            ->whereBetween('scheduled_start_at', [$weekStart, $weekEnd])
+            ->whereNotNull('assigned_technician_id')
+            ->selectRaw('assigned_technician_id, COUNT(*) as total')
+            ->groupBy('assigned_technician_id')
+            ->pluck('total', 'assigned_technician_id');
+
+        $teamWeekLoad = User::where('role', UserRole::TECHNICIAN->value)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (User $tech) => [
+                'id' => $tech->id,
+                'name' => $tech->name,
+                'week_visits' => (int) ($weekCountsByTech[$tech->id] ?? 0),
+            ]);
+
+        $upcomingWeekVisits = WorkOrder::with(['installation.customer', 'technician:id,name'])
+            ->whereIn('status', $activeStatuses)
+            ->where('scheduled_start_at', '>=', $today)
+            ->orderBy('scheduled_start_at')
+            ->limit(5)
+            ->get()
+            ->map(fn (WorkOrder $wo) => [
+                'id' => $wo->id,
+                'scheduled_start_at' => $wo->scheduled_start_at?->toIso8601String(),
+                'scheduled_end_at' => $wo->scheduled_end_at?->toIso8601String(),
+                'customer_name' => $wo->installation->customer->name,
+                'installation_type' => $wo->installation->installation_type,
+                'technician_name' => $wo->technician?->name ?? 'Unassigned',
+            ]);
 
         return response()->json([
             'role' => 'owner',
@@ -142,6 +177,8 @@ class DashboardController extends Controller
                 'needs_contact_count' => $needsContactList->count(),
             ],
             'needs_contact_list' => $needsContactList,
+            'team_week_load' => $teamWeekLoad,
+            'upcoming_week_visits' => $upcomingWeekVisits,
         ]);
     }
 
