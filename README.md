@@ -16,7 +16,7 @@
 > *"I never know which maintenance is coming up. Fire detection has to be serviced every year by law, and I'm terrified of forgetting customers. And when I try to schedule something in BuildDesk Pro, it takes me an eternity."*
 
 ### Why the Legacy System (BuildDesk Pro) Failed:
-1. **185 of 193 installations (96%) had NO next due date** (`volgende` was blank, or inverted earlier than `laatste`). The old ERP never auto-calculated recurring deadlines.
+1. **185 of 193 installations (96%) had NO next due date** (`volgende` was completely blank, and 4 more were inverted earlier than `laatste` — leaving only 4 valid dates). The old ERP never auto-calculated recurring deadlines.
 2. **56 fire detection systems (`BRAND` / `BRANDDET`)** lacked statutory annual tracking, exposing the company to severe legal compliance risk.
 3. **559 work orders existed**, yet only **53 execution hour rows** were logged—field technicians had no usable mobile view.
 4. **Corrupted & inconsistent exports:** Free-text intervals (`1J`, `12M`, `jaarlijks`, `?`), inverted appointment windows (`13:00`–`10:00`), **6 inconsistent phone formats**, double spaces, **7 inactive customers (`actief=N`) still tied to active installations**, and **3 double-booked legacy slots**.
@@ -44,14 +44,14 @@
 The repository bundles the fictional Verlinde Beveiliging BV BuildDesk CSV exports under `database/data/builddesk/`, so **a fresh clone seeds the full normalized dataset automatically**.
 
 ### Prerequisites
-* PHP 8.2+ (tested with PHP 8.4)
+* PHP 8.3+ (tested with PHP 8.4)
 * Composer 2.x
 * Node.js 18+ and NPM
 
 ### Option 1: One-Command Setup
 ```bash
-git clone <repository-url>
-cd MaintenanceFlowDashboard
+git clone https://github.com/ZetKamil/MaintenanceFlow.git
+cd MaintenanceFlow
 composer run setup
 php artisan serve
 ```
@@ -88,7 +88,7 @@ php artisan serve
 
 ## 🧪 Automated Test Suite
 
-Run the full automated test suite (Feature & Unit tests covering authentication, scheduling conflicts, authorization boundaries, and transactional cycle rollover):
+Run the full automated test suite (**14 PHPUnit tests, 122 assertions** across Unit & Feature suites using an isolated SQLite `:memory:` database—covering ETL normalization, import idempotency, authentication & IDOR protection, schedule conflicts, and transactional report completion):
 
 ```bash
 php artisan test
