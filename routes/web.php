@@ -1,7 +1,12 @@
 <?php
 
-use App\Http\Controllers\AuthController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\InstallationController;
+use App\Http\Controllers\WorkOrderController;
+use App\Http\Controllers\MaintenanceReportController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -17,6 +22,16 @@ Route::prefix('api')->group(function () {
     Route::middleware('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout'])->name('api.logout');
         Route::get('/me', [AuthController::class, 'me'])->name('api.me');
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('api.dashboard');
+        Route::get('/technicians', [DashboardController::class, 'technicians'])->name('api.technicians');
+        Route::get('/installations', [InstallationController::class, 'index'])->name('api.installations.index');
+        Route::get('/installations/{installation}', [InstallationController::class, 'show'])->name('api.installations.show');
+        Route::get('/work-orders', [WorkOrderController::class, 'index'])->name('api.work-orders.index');
+        Route::post('/work-orders', [WorkOrderController::class, 'store'])->name('api.work-orders.store');
+        Route::get('/work-orders/{workOrder}', [WorkOrderController::class, 'show'])->name('api.work-orders.show');
+        Route::put('/work-orders/{workOrder}', [WorkOrderController::class, 'update'])->name('api.work-orders.update');
+        Route::post('/work-orders/{workOrder}/start', [WorkOrderController::class, 'start'])->name('api.work-orders.start');
+        Route::post('/work-orders/{workOrder}/report', [MaintenanceReportController::class, 'store'])->name('api.work-orders.report');
     });
 });
 
